@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 from langgraph.prebuilt import create_react_agent
 from langchain_community.utilities import SQLDatabase
@@ -5,18 +6,20 @@ from langchain_core.tools import Tool
 from langchain_core.messages import AIMessage
 from ragtool import rag_tool
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # ===============================
 # Agent Creation
 # ===============================
 
-def create_agent(db, llm, verbose=False):
+def create_agent(db: SQLDatabase, llm):
     """
-    Create the SQL Agent given a SQLDatabase instance and an LLM.
+    Create the hybrid agent with SQL and RAG tools.
     """
     tools = get_all_tools(db, llm)
-
     dialect = db.dialect
-    top_k = 5
 
     system_prompt = f"""
 You are an intelligent assistant capable of answering both SQL-related questions and document-based (RAG) questions.
@@ -24,10 +27,10 @@ You are an intelligent assistant capable of answering both SQL-related questions
 ## Capabilities
 
 You have access to the following tools:
-1. list_tables_tool - List all tables in the SQL database.
-2. get_schema_tool - Get the schema of one or more tables.
-3. sql_query_checker_tool - Check and fix SQL queries before running them.
-4. run_query_tool - Execute SQL queries.
+1. sql_db_list_tables - List all tables in the SQL database.
+2. sql_db_schema - Get the schema of one or more tables.
+3. sql_db_query_checker - Check and fix SQL queries before running them.
+4. sql_db_query - Execute SQL queries.
 5. rag_tool - Retrieve information from faiss (RAG-based QA).
 
 ## SQL Questions
@@ -37,9 +40,9 @@ For questions related to the database:
 - Pay attention to column/table names, which may be case-sensitive.
 - If a query fails, inspect the error and retry with corrections.
 - If still unsuccessful, return:  
-  > `"Unable to retrieve data due to repeated query errors. Please check the input question."`
+  > "Unable to retrieve data due to repeated query errors. Please check the input question."
 - If no matching data is found, respond clearly:  
-  > `"No matching data found for your query."`
+  > "No matching data found for your query."
 - NEVER use destructive operations like INSERT, DELETE, UPDATE, DROP, or ALTER.
 - NEVER assume the schema — always confirm using schema tools.
 
@@ -67,7 +70,6 @@ Before answering, decide whether the user's question:
 ## Final Rule
 
 Do NOT fabricate answers. Only use results returned by tools. Be safe, accurate, and clear in your responses.
-
 """
 
     agent = create_react_agent(
@@ -75,26 +77,29 @@ Do NOT fabricate answers. Only use results returned by tools. Be safe, accurate,
         tools,
         prompt=system_prompt,
     )
-
     return agent
-
 
 # ===============================
 # SQL Tools
 # ===============================
 
-
-
 def list_tables_tool(db: SQLDatabase):
     """
     Tool that lists all tables in the database.
     """
+    def _list_tables(_):
+        try:
+            tables = db.get_usable_table_names()
+            return f"Tables: {', '.join(tables)}" if tables else "No tables found in the database."
+        except Exception as e:
+            logger.error(f"Error listing tables: {e}")
+            return f"Error listing tables: {e}"
+
     return Tool(
         name="sql_db_list_tables",
         description="List all tables in the SQL database. Input can be any string.",
-        func=lambda _: f"Tables: {', '.join(db.get_usable_table_names())}"
+        func=_list_tables
     )
-
 
 def get_schema_tool(db: SQLDatabase):
     """
@@ -102,16 +107,31 @@ def get_schema_tool(db: SQLDatabase):
     If found → show schema.
     If not found → 'Table not found: …'
     """
+    def _get_schema(table_names):
+        try:
+            if not table_names.strip():
+                return "No tables specified."
+            results = []
+            for name in table_names.split(","):
+                name = name.strip()
+                if not name:
+                    continue
+                # Capitalize first letter to match DB table names
+                name = name.capitalize()
+                schema = db.get_table_info([name])
+                if schema:
+                    results.append(schema)
+                else:
+                    results.append(f"Table not found: {name}")
+            return "\n\n".join(results)
+        except Exception as e:
+            logger.error(f"Error getting schema: {e}")
+            return f"Error getting schema: {e}"
+
     return Tool(
         name="sql_db_schema",
         description="Get schema for specified tables. Input: comma-separated table names.",
-        func=lambda table_names: (
-            "No tables specified." if not table_names.strip() else
-            "\n\n".join(
-                db.get_table_info([name.strip()]) or f"Table not found: {name.strip()}"
-                for name in table_names.split(",") if name.strip()
-            )
-        )
+        func=_get_schema
     )
 
 check_query_system_prompt = """
@@ -133,29 +153,49 @@ just reproduce the original query.
 You will call the appropriate tool to execute the query after running this check.
 """
 
-
 def sql_query_checker_tool(llm, db):
+    """
+    Tool to check and fix SQL queries using the LLM.
+    """
     prompt = check_query_system_prompt.format(dialect=db.dialect)
+    def _check_query(query):
+        try:
+            result = llm.invoke([
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": query}
+            ])
+            return result.content
+        except Exception as e:
+            logger.error(f"Error checking SQL query: {e}")
+            return f"Error checking SQL query: {e}"
+
     return Tool(
         name="sql_db_query_checker",
         description="Check and fix a SQL query if needed. Input: SQL query as string.",
-        func=lambda query: llm.invoke([
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": query}
-        ]).content
+        func=_check_query
     )
-
 
 def run_query_tool(db: SQLDatabase):
     """
     Tool that executes a SQL query on the database.
     """
+    def _run_query(query):
+        try:
+            if not query.strip():
+                return "No SQL query provided."
+            result = db.run(query)
+            if not result:
+                return "No matching data found for your query."
+            return result
+        except Exception as e:
+            logger.error(f"Error running SQL query: {e}")
+            return f"Error running SQL query: {e}"
+
     return Tool(
         name="sql_db_query",
         description="Run a SQL query on the database. Input should be a SQL string.",
-        func=lambda query: db.run(query) if query.strip() else "No SQL query provided."
+        func=_run_query
     )
-
 
 def get_all_tools(db: SQLDatabase, llm):
     """
@@ -169,8 +209,8 @@ def get_all_tools(db: SQLDatabase, llm):
         rag_tool,
     ]
 
-    print("✅ Custom SQL Tools available:")
+    logger.info("✅ Custom SQL & RAG Tools available:")
     for t in tools:
-        print(f"- {t.name}: {t.description}")
+        logger.info(f"- {t.name}: {t.description}")
 
     return tools

@@ -1,44 +1,67 @@
-import os
-from dotenv import load_dotenv
-import warnings
-from sqlalchemy.exc import SAWarning
+from sqltool import create_agent
 from langchain_community.utilities import SQLDatabase
-from langchain_groq import ChatGroq
-warnings.filterwarnings("ignore", category=SAWarning)
+from langchain_openai import ChatOpenAI
+from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+import os
+import sys
+import logging
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
+# ===============================
+# Load environment variables
+# ===============================
 load_dotenv()
-
-postgres_uri = os.getenv("POSTGRES_URI")
 groq_api_key = os.getenv("GROQ_API_KEY")
+if not groq_api_key:
+    print("Error: GROQ_API_KEY environment variable not set.")
+    sys.exit(1)
 
+# ===============================
+# Initialize LLM
+# ===============================
+llm = ChatOpenAI(
+    model_name="llama3-70b-8192",
+    openai_api_base="https://api.groq.com/openai/v1",
+    openai_api_key=groq_api_key,
+    temperature=0
+)
 
-if not postgres_uri or not groq_api_key:
-    raise ValueError("❌ POSTGRES_URI and GROQ_API_KEY must be set in the .env file")
+# ===============================
+# Connect to SQLite DB
+# ===============================
+try:
+    db = SQLDatabase.from_uri("sqlite:///Chinook.db")
+except Exception as e:
+    print(f"Error connecting to database: {e}")
+    sys.exit(1)
 
-db = SQLDatabase.from_uri(postgres_uri)
-llm = ChatGroq(model="llama3-70b-8192", api_key=groq_api_key)
+# ===============================
+# Create Hybrid Agent (SQL + RAG)
+# ===============================
+agent = create_agent(db, llm)
 
-
-from sqltool import create_agent, get_all_tools 
-
-tools = get_all_tools(db, llm)
-
-
-agent = create_agent(db, llm) 
-
-print("✅ Agent created successfully with SQL + RAG tools.")
+print("✅ SQL Agent created successfully.")
 print("👉 Starting test query…\n")
 
 while True:
     question = input("\n📝 Enter your question (or type 'exit' to quit): ").strip()
-    
     if question.lower() in {"exit", "quit"}:
         print("👋 Goodbye!")
         break
-
     print(f"\n🤖 Answering: {question}\n")
+    final_answer = None
+    # Stream all steps, but only keep the last message
     for step in agent.stream(
         {"messages": [{"role": "user", "content": question}]},
         stream_mode="values",
     ):
-        step["messages"][-1].pretty_print()
+        if step.get("messages"):
+            final_answer = step["messages"][-1]
+    # Print only the final answer
+    if final_answer is not None:
+        # Try to print the content if it's a message object
+        content = getattr(final_answer, 'content', str(final_answer))
+        print(f"Agent: {content}\n")
+    else:
+        print("Agent: Sorry, I couldn't generate an answer.\n")
