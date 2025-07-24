@@ -37,7 +37,7 @@ def rag_tool_fn(query: str) -> str:
     context = "\n".join(doc.page_content for doc in retrieved_docs)
 
     system_prompt = (
-        "You are a helpful RAG assistant. Use only the retrieved context to answer.\n\n"
+        "You are a helpful RAG assistant. Use only the retrieved context from the document to answer.\n\n"
         "If the user query is out of context DO NOT answer it.\n"
         f"Context:\n{context}"
     )
@@ -48,5 +48,5 @@ def rag_tool_fn(query: str) -> str:
 rag_tool = Tool(
     name="Document QA (RAG)",
     func=rag_tool_fn,
-    description="Use this tool to answer questions from the uploaded documents."
+    description="Use this tool to answer document-based questions related to jbs. Ideal for questions NOT related to SQL or database schema.."
 )
