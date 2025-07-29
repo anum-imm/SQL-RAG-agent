@@ -3,7 +3,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_core.messages import SystemMessage
 from ragtool import rag_tool  
-
+from displaytool import analytics_tool
 def create_agent(db: SQLDatabase, llm):
     """
     Create the hybrid agent with built-in SQLDatabaseToolkit tools + your custom RAG tool.
@@ -16,6 +16,8 @@ def create_agent(db: SQLDatabase, llm):
     # Add your RAG tool
     tools.append(rag_tool)
 
+   # Add analytics tool
+    tools.append(analytics_tool)
     
     system_prompt = f"""
 
@@ -23,7 +25,7 @@ You are a hybrid assistant that can answer questions using:
 
 1. **SQL Tools** — for questions about structured data in the SQL database.
 2. **RAG Tool** — for questions about JBS, people, or concepts found in uploaded documents.
-
+3. **Analytics Tool** — for creating charts from SQL query results.
 ## Capabilities
 
 You have access to the following tools:
@@ -32,7 +34,7 @@ You have access to the following tools:
 3. sql_db_query_checker - Check and fix SQL queries before running them.
 4. sql_db_query - Execute SQL queries.
 5. rag_tool - Retrieve information from faiss (RAG-based QA).
-
+6. analytics_tool - Generate charts (histogram, pie, bar) from SQL query results.
 ### How to decide which tool to use
 
 - If the question is about **tables, columns, numbers, counts, statistics, trends, or database records** → Use **SQL tools**.
@@ -61,11 +63,28 @@ Before answering, double-check:
 
 ## Document-Based (RAG) Questions
 
-If the user asks a question that is related to jbs and NOT related to SQL or the database schema (e.g., about a topic or concept from uploaded documents):
+If the user asks a question that is related to JBS and NOT related to SQL or the database schema 
 - Use the `rag_tool` to retrieve the answer.
 - Respond concisely and clearly with the relevant information from the documents.
 - If no relevant documents are found, say:  
   > "I couldn't find relevant information in the documents."
+
+## Analytics Tool Rules
+
+If the user asks for a **chart**:
+1. First, **inspect the Chinook database schema** using `sql_db_schema` to confirm the correct **table names** and **column names**.  
+   - Use correct capitalization (e.g., `Track` not `tracks`, `Album` not `albums`).
+   - Do not invent new table or column names.
+2. Create a **valid SQL SELECT query** for the requested chart data.
+3. Call:
+analytics_tool(query=<SQL>, chart_type=<type>)
+- `chart_type` must be `"histogram"`, `"pie"`, or `"bar"`.
+- **Do NOT add** `x_col` or `y_col`. The tool auto-detects them.
+4. Choose chart type:
+- Histogram → for numeric distributions (e.g., track length, invoice total).
+- Pie → for category proportions (e.g., customers by country, tracks by genre).
+- Bar → for comparisons (e.g., top artists, top albums).
+5. Return only the **Base64 PNG output** from the tool.
 
 ## Question Classification
 
