@@ -165,25 +165,54 @@ document.addEventListener("DOMContentLoaded", () => {
   const sendBtn = document.getElementById("send-btn");
   const messages = document.getElementById("messages");
   let sessionId = null;
-  function appendMessage(text, sender) {
-    const existingTyping = messages.querySelector(".typing-indicator");
-    if (existingTyping) existingTyping.remove();
+  // function appendMessage(text, sender) {
+  //   const existingTyping = messages.querySelector(".typing-indicator");
+  //   if (existingTyping) existingTyping.remove();
 
-    if (sender === "typing") {
-      const typing = document.createElement("div");
-      typing.className = "typing-indicator bot";
-      typing.innerHTML =`RAGAgent is typing<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
-      messages.appendChild(typing);
-      scrollMessagesToBottom();
-      return;
-    }
+  //   if (sender === "typing") {
+  //     const typing = document.createElement("div");
+  //     typing.className = "typing-indicator bot";
+  //     typing.innerHTML =`RAGAgent is typing<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+  //     messages.appendChild(typing);
+  //     scrollMessagesToBottom();
+  //     return;
+  //   }
 
-    const msg = document.createElement("div");
-    msg.className = `message ${sender}`;
-    msg.textContent = text;
-    messages.appendChild(msg);
+  //   const msg = document.createElement("div");
+  //   msg.className = `message ${sender}`;
+  //   msg.textContent = text;
+  //   messages.appendChild(msg);
+  //   scrollMessagesToBottom();
+  // }
+  function appendMessage(content, sender, type = "text") {
+  const existingTyping = messages.querySelector(".typing-indicator");
+  if (existingTyping) existingTyping.remove();
+
+  if (sender === "typing") {
+    const typing = document.createElement("div");
+    typing.className = "typing-indicator bot";
+    typing.innerHTML = `RAGAgent is typing<span class="dot"></span><span class="dot"></span><span class="dot"></span>`;
+    messages.appendChild(typing);
     scrollMessagesToBottom();
+    return;
   }
+
+  const msg = document.createElement("div");
+  msg.className = `message ${sender}`;
+
+  if (type === "image" && content.startsWith("data:image")) {
+    const img = document.createElement("img");
+    img.src = content;
+    img.style.maxWidth = "100%";
+    img.style.borderRadius = "10px";
+    msg.appendChild(img);
+  } else {
+    msg.textContent = content;
+  }
+
+  messages.appendChild(msg);
+  scrollMessagesToBottom();
+}
 
   function scrollMessagesToBottom() {
     messages.scrollTo({ top: messages.scrollHeight, behavior: "smooth" });
@@ -209,7 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const data = await response.json();
-      appendMessage(data.answer || "🤷 Sorry, no answer found.", "bot");
+      appendMessage(data.answer || "🤷 Sorry, no answer found.", "bot", data.type || "text");
       sessionId=data.session_id;
     } catch (err) {
       console.error("❌ Error during fetch:", err);
