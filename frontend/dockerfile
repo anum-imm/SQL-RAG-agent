@@ -1,0 +1,19 @@
+# ========================
+# Frontend - Static HTML + Assets
+# ========================
+FROM nginx:alpine
+
+# Remove default Nginx static files
+RUN rm -rf /usr/share/nginx/html/*
+
+# Set working directory (Nginx's web root)
+WORKDIR /usr/share/nginx/html
+
+# Copy only frontend files (adjust path if needed)
+COPY . .
+
+# Expose Nginx port
+EXPOSE 80
+
+# Start Nginx in foreground
+CMD ["nginx", "-g", "daemon off;"]
