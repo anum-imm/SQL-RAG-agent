@@ -97,20 +97,32 @@ def list_tables_tool(db: SQLDatabase):
 
 def get_schema_tool(db: SQLDatabase):
     """
-    Tool: Get schema for specified tables.
-    If found → show schema.
-    If not found → 'Table not found: …'
+    Tool: Get schema for specified tables, or all tables if none specified.
     """
+    def _get_schema(table_names):
+        try:
+            if not table_names.strip():
+                # No table specified: return schema for all tables
+                tables = db.get_usable_table_names()
+                if not tables:
+                    return "No tables found in the database."
+                return "\n\n".join(
+                    db.get_table_info([name]) or f"Table not found: {name}"
+                    for name in tables
+                )
+            else:
+                # Specific tables requested
+                return "\n\n".join(
+                    db.get_table_info([name.strip()]) or f"Table not found: {name.strip()}"
+                    for name in table_names.split(",") if name.strip()
+                )
+        except Exception as e:
+            return f"Error getting schema: {e}"
+
     return Tool(
         name="sql_db_schema",
-        description="Get schema for specified tables. Input: comma-separated table names.",
-        func=lambda table_names: (
-            "No tables specified." if not table_names.strip() else
-            "\n\n".join(
-                db.get_table_info([name.strip()]) or f"Table not found: {name.strip()}"
-                for name in table_names.split(",") if name.strip()
-            )
-        )
+        description="Get schema for specified tables, or all tables if none specified. Input: comma-separated table names or leave blank for all.",
+        func=_get_schema
     )
 
 check_query_system_prompt = """
