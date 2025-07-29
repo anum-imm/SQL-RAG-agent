@@ -1,14 +1,9 @@
-import logging
 from typing import Optional, List
 from langgraph.prebuilt import create_react_agent
 from langchain_community.utilities import SQLDatabase
 from langchain_core.tools import Tool
 from langchain_core.messages import AIMessage
 from ragtool import rag_tool
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # ===============================
 # Agent Creation
@@ -92,7 +87,6 @@ def list_tables_tool(db: SQLDatabase):
             tables = db.get_usable_table_names()
             return f"Tables: {', '.join(tables)}" if tables else "No tables found in the database."
         except Exception as e:
-            logger.error(f"Error listing tables: {e}")
             return f"Error listing tables: {e}"
 
     return Tool(
@@ -107,31 +101,16 @@ def get_schema_tool(db: SQLDatabase):
     If found → show schema.
     If not found → 'Table not found: …'
     """
-    def _get_schema(table_names):
-        try:
-            if not table_names.strip():
-                return "No tables specified."
-            results = []
-            for name in table_names.split(","):
-                name = name.strip()
-                if not name:
-                    continue
-                # Capitalize first letter to match DB table names
-                name = name.capitalize()
-                schema = db.get_table_info([name])
-                if schema:
-                    results.append(schema)
-                else:
-                    results.append(f"Table not found: {name}")
-            return "\n\n".join(results)
-        except Exception as e:
-            logger.error(f"Error getting schema: {e}")
-            return f"Error getting schema: {e}"
-
     return Tool(
         name="sql_db_schema",
         description="Get schema for specified tables. Input: comma-separated table names.",
-        func=_get_schema
+        func=lambda table_names: (
+            "No tables specified." if not table_names.strip() else
+            "\n\n".join(
+                db.get_table_info([name.strip()]) or f"Table not found: {name.strip()}"
+                for name in table_names.split(",") if name.strip()
+            )
+        )
     )
 
 check_query_system_prompt = """
@@ -166,7 +145,6 @@ def sql_query_checker_tool(llm, db):
             ])
             return result.content
         except Exception as e:
-            logger.error(f"Error checking SQL query: {e}")
             return f"Error checking SQL query: {e}"
 
     return Tool(
@@ -188,7 +166,6 @@ def run_query_tool(db: SQLDatabase):
                 return "No matching data found for your query."
             return result
         except Exception as e:
-            logger.error(f"Error running SQL query: {e}")
             return f"Error running SQL query: {e}"
 
     return Tool(
@@ -208,9 +185,4 @@ def get_all_tools(db: SQLDatabase, llm):
         run_query_tool(db),
         rag_tool,
     ]
-
-    logger.info("✅ Custom SQL & RAG Tools available:")
-    for t in tools:
-        logger.info(f"- {t.name}: {t.description}")
-
     return tools
