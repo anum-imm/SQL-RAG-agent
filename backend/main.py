@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from uuid import uuid4
 from db import SessionLocal, ChatSession, Conversation  
 
+
+import uvicorn
 # ===============================
 # Load environment variables
 # ===============================
@@ -126,3 +128,7 @@ async def ask_question(req: QueryRequest):
 
     finally:
         db_session.close()
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=8000)
