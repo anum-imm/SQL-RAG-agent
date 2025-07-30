@@ -53,8 +53,9 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 -Visit → http://localhost:8000/docs
 
 
-📌 How It Works
-Query Classification
+# 📌 How It Works
+
+- **Query Classification**
 
 If the question is about database content → SQL Agent is used.
 
@@ -62,7 +63,7 @@ If the question is about general knowledge in embeddings → RAG Agent is used.
 
 If the question requests charts or data visualization → Analytics Tool is used.
 
-SQL Agent Flow
+- **SQL Agent Flow**
 
 Converts question → SQL query.
 
@@ -70,7 +71,7 @@ Runs query on Chinook.db.
 
 Returns results in tabular form.
 
-RAG Agent Flow
+- **RAG Agent Flow**
 
 Converts question → embedding vector.
 
@@ -78,7 +79,7 @@ Searches FAISS vector store for similar documents.
 
 Returns retrieved content as part of the final answer.
 
-Analytics Tool Flow
+- **Analytics Tool Flow**
 
 Runs a SQL query.
 
