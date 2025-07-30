@@ -231,13 +231,14 @@ document.addEventListener("DOMContentLoaded", () => {
     appendMessage(null, "typing");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/ask", {
+      const response = await fetch("http://localhost:8000/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: question , session_id: sessionId}),
       });
 
       const data = await response.json();
+      console.log(data);
       appendMessage(data.answer || "🤷 Sorry, no answer found.", "bot", data.type || "text");
       sessionId=data.session_id;
     } catch (err) {
