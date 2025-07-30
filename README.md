@@ -39,15 +39,16 @@ The system **automatically decides** which tool to use based on the nature of th
 
 - **Local Installation**
 
--cd backend
--python -m venv venv
--source venv/bin/activate  # Windows: venv\Scripts\activate
--pip install --upgrade pip
--pip install -r requirements.txt
+- cd backend
+- python -m venv venv
+- source venv/bin/activate  # Windows: venv\Scripts\activate
+- pip install --upgrade pip
+- pip install -r requirements.txt
 
 
 -**Run locally**
 
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
-Visit → http://localhost:8000/docs
+
+-Visit → http://localhost:8000/docs
 
