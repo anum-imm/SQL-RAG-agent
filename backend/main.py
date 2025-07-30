@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from uuid import uuid4
 from db import SessionLocal, ChatSession, Conversation
 import uvicorn
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage
 import base64
@@ -56,7 +56,7 @@ tokenizer = tiktoken.get_encoding("cl100k_base")
 # ===============================
 # Memory Setup
 # ===============================
-memory = InMemorySaver()
+memory = MemorySaver()
 
 # ===============================
 # Define workflow
@@ -70,7 +70,7 @@ def call_sql_rag(state: MessagesState):
 
     # Stream the answer from the agent
     for step in agent.stream(
-        {"messages": [{"role": "user", "content": user_query}]},
+        {"messages": state["messages"]},
         stream_mode="values"
     ):
         if step.get("messages"):
@@ -129,14 +129,13 @@ async def ask_question(req: QueryRequest):
             db_session.commit()
 
         # Call the graph (with memory + sessions)
-        result_state = graph.invoke(
+        graph_result = graph.invoke(
             {"messages": [{"role": "user", "content": req.query}]},
             {"configurable": {"thread_id": str(session_id)}}
         )
 
         # Get final agent reply
-        messages = result_state.get("messages", [])
-        result = messages[-1].content if messages else "Not found."
+        result = graph_result["messages"][-1].content
 
         # Token usage
         query_tokens = len(tokenizer.encode(req.query))

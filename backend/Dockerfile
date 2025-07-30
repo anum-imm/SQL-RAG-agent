@@ -1,5 +1,5 @@
 # ========================
-# Backend - FastAPI + SQL+RAG
+# Backend - FastAPI + SQL+RAG (Optimized Build)
 # ========================
 FROM python:3.11-slim
 
@@ -18,8 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy only requirements.txt for dependency caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+
+# ✅ Force CPU-only PyTorch to avoid downloading CUDA (2–3 GB)
+# Add extra index for CPU-only wheels
+RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy backend code, database, and FAISS index
 COPY . .
