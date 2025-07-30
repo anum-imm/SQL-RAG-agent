@@ -1,4 +1,4 @@
-from sqltool import create_agent
+from models.sqltool import create_agent
 from langchain_community.utilities import SQLDatabase
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from uuid import uuid4
-from db import SessionLocal, ChatSession, Conversation
+from databases.db import SessionLocal, ChatSession, Conversation
 import uvicorn
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, MessagesState, START, END
