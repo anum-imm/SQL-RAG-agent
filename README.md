@@ -34,25 +34,20 @@ The system **automatically decides** which tool to use based on the nature of th
 - **Vector Store** → [FAISS](https://github.com/facebookresearch/faiss)
 - **Agent Framework** → [LangChain](https://www.langchain.com/)
 - **Visualization** → Matplotlib & Pandas
-- **Containerization** → Docker + Docker Compose
 
 ---
 
-Local Installation
-bash
-Copy
-Edit
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install --upgrade pip
-pip install -r requirements.txt
+- **Local Installation**
+
+-cd backend
+-python -m venv venv
+-source venv/bin/activate  # Windows: venv\Scripts\activate
+-pip install --upgrade pip
+-pip install -r requirements.txt
 
 
-Run locally
-bash
-Copy
-Edit
+-**Run locally**
+
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 Visit → http://localhost:8000/docs
 
