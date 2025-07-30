@@ -21,7 +21,7 @@ COPY requirements.txt .
 
 # ✅ Force CPU-only PyTorch to avoid downloading CUDA (2–3 GB)
 # Add extra index for CPU-only wheels
-RUN pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+RUN pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Copy backend code, database, and FAISS index
 COPY . .

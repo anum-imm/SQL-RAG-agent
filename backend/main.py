@@ -15,6 +15,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_core.messages import AIMessage
 import base64
+from typing import Optional
 # ===============================
 # Load environment variables
 # ===============================
@@ -109,7 +110,7 @@ app.add_middleware(
 
 class QueryRequest(BaseModel):
     query: str
-    session_id: str = None
+    session_id: Optional[str]
 
 @app.get("/")
 def read():
@@ -117,21 +118,24 @@ def read():
 
 @app.post("/api/ask")
 async def ask_question(req: QueryRequest):
-    session_id = req.session_id or str(uuid4())
+    
+    if not req.session_id:
+        req.session_id = str(uuid4())
+
     db_session = SessionLocal()
 
     try:
         # Ensure chat session exists
-        chat_session = db_session.query(ChatSession).filter_by(id=session_id).first()
+        chat_session = db_session.query(ChatSession).filter_by(id=req.session_id).first()
         if not chat_session:
-            chat_session = ChatSession(id=session_id, title="untitled", total_tokens=0)
+            chat_session = ChatSession(id=req.session_id, title="untitled", total_tokens=0)
             db_session.add(chat_session)
             db_session.commit()
 
         # Call the graph (with memory + sessions)
         graph_result = graph.invoke(
             {"messages": [{"role": "user", "content": req.query}]},
-            {"configurable": {"thread_id": str(session_id)}}
+            {"configurable": {"thread_id": str(req.session_id)}}
         )
 
         # Get final agent reply
@@ -144,7 +148,7 @@ async def ask_question(req: QueryRequest):
 
         # Save conversation
         convo = Conversation(
-            session_id=session_id,
+            session_id=req.session_id,
             user_message=req.query,
             bot_response=result,
             tokens_used=total_tokens
@@ -162,14 +166,14 @@ async def ask_question(req: QueryRequest):
         if result and is_base64_image(result):
             return {
                 "answer": f"data:image/png;base64,{result}",
-                "session_id": session_id,
+                "session_id": req.session_id,
                 "type": "image"
             }
 
         # Otherwise return as text
         return {
             "answer": result,
-            "session_id": session_id,
+            "session_id": req.session_id,
             "type": "text"
         }
 
